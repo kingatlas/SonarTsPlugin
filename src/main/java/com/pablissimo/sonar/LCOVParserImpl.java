@@ -1,6 +1,6 @@
 /*
  * Pretty heavily modified version of the existing SonarQube LCOV parser implementation
- * 
+ *
  * SonarQube JavaScript Plugin
  * Copyright (C) 2011-2016 SonarSource SA
  * mailto:contact AT sonarsource DOT com
@@ -70,30 +70,30 @@ public class LCOVParserImpl implements LCOVParser {
         throw new IllegalArgumentException("Could not read content from file: " + file, e);
       }
     }
-    
+
     return new LCOVParserImpl(lines, context);
   }
 
-  Map<InputFile, NewCoverage> coverageByFile() {
+  public Map<InputFile, NewCoverage> coverageByFile() {
     return coverageByFile;
   }
 
   List<String> unresolvedPaths() {
     return unresolvedPaths;
   }
-  
+
   @Override
   public Map<InputFile, NewCoverage> parseFile(File file) {
       final List<String> lines;
-      try 
+      try
       {
           lines = Files.readAllLines(file.toPath());
-      } 
-      catch (IOException e) 
+      }
+      catch (IOException e)
       {
           throw new IllegalArgumentException("Could not read content from file: " + file, e);
       }
-      
+
       return parse(lines);
   }
 
@@ -152,28 +152,28 @@ public class LCOVParserImpl implements LCOVParser {
   private FileData loadCurrentFileData(final Map<InputFile, FileData> files, String line) {
     String filePath = line.substring(SF.length());
     FileData fileData = null;
-    
+
     // some tools (like Istanbul, Karma) provide relative paths, so let's consider them relative to project directory
     InputFile inputFile = null;
     try {
         Paths.get(filePath);
-        inputFile = context.fileSystem().inputFile(context.fileSystem().predicates().hasPath(filePath));    
+        inputFile = context.fileSystem().inputFile(context.fileSystem().predicates().hasPath(filePath));
     }
     catch (InvalidPathException ex) {
         LOG.warn("LCOV file referred to path that appears invalid (not just not on disk): " + filePath, ex);
-    }   
-        
+    }
+
     // Try to accommodate Angular projects that, when the angular template loader's used
     // by checking for a ! in the filepath if the path isn't found - have a bash at seeking
     // everything after the last ! as a second fallback pass
     if (inputFile == null && filePath.contains("!") && (filePath.lastIndexOf('!') + 1) < filePath.length()) {
         String amendedPath = filePath.substring(filePath.lastIndexOf('!') + 1);
-        
+
         LOG.debug("Failed to resolve " + filePath + " as a valid source file, so attempting " + amendedPath + " instead");
-        
+
         inputFile = context.fileSystem().inputFile(context.fileSystem().predicates().hasPath(amendedPath));
     }
-    
+
     if (inputFile != null) {
       fileData = files.get(inputFile);
       if (fileData == null) {
@@ -231,7 +231,7 @@ public class LCOVParserImpl implements LCOVParser {
       if (currentValue == null) {
           currentValue = 0;
       }
-      
+
       hits.put(lineNumber, currentValue + executionCount);
     }
 

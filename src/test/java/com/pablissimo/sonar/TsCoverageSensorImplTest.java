@@ -23,15 +23,15 @@ public class TsCoverageSensorImplTest {
     Settings settings;
     SensorContextTester context;
     LCOVParser parser;
-    
+
     DefaultInputFile file;
     File lcovFile;
-    
+
     @Before
     public void setUp() throws Exception {
         this.file = new DefaultInputFile("", "src/test/existing.ts").setLanguage(TypeScriptLanguage.LANGUAGE_KEY);
         this.file.setLines(5);
-        
+
         this.settings = mock(Settings.class);
         when(this.settings.getString(TypeScriptPlugin.SETTING_LCOV_REPORT_PATH)).thenReturn("lcovpath");
 
@@ -42,7 +42,7 @@ public class TsCoverageSensorImplTest {
 
         this.context.fileSystem().add(this.file);
         this.context.setSettings(this.settings);
-        
+
         this.lcovFile = mock(File.class);
         when(this.lcovFile.isFile()).thenReturn(true);
         doReturn(this.lcovFile).when(this.sensor).getIOFile(any(File.class), eq("lcovpath"));
@@ -65,7 +65,7 @@ public class TsCoverageSensorImplTest {
     public void savesNothing_IfNoReportAndSettingDisabled() {
         when(this.settings.getString(TypeScriptPlugin.SETTING_LCOV_REPORT_PATH)).thenReturn("");
         when(this.settings.getBoolean(TypeScriptPlugin.SETTING_FORCE_ZERO_COVERAGE)).thenReturn(false);
-        
+
         this.sensor.execute(this.context, null);
 
         for (int i = 1; i <= this.file.lines(); i++) {
@@ -76,9 +76,9 @@ public class TsCoverageSensorImplTest {
     @Test
     public void doesNotCallParser_WhenNoLCOVPathSupplied() {
         when(this.settings.getString(TypeScriptPlugin.SETTING_LCOV_REPORT_PATH)).thenReturn("");
-        
+
         this.sensor.execute(this.context, null);
-        verify(this.parser, never()).parseFile(any(java.io.File.class));
+        verify(this.parser, never()).coverageByFile();
     }
 
     @Test
@@ -89,7 +89,7 @@ public class TsCoverageSensorImplTest {
             assertEquals((Integer) 0, this.context.lineHits(this.file.key(), CoverageType.UNIT, i));
         }
     }
-    
+
     @Test
     public void usesNonCommentLinesSetForLinesToCoverMetrics_IfSettingZeroCoverage() {
         Map<InputFile, Set<Integer>> nonCommentLineNumbersByFile = new HashMap<InputFile, Set<Integer>>();
@@ -97,16 +97,16 @@ public class TsCoverageSensorImplTest {
         nonCommentLineNumbers.add(1);
         nonCommentLineNumbers.add(3);
         nonCommentLineNumbers.add(5);
-        
+
         nonCommentLineNumbersByFile.put(this.file, nonCommentLineNumbers);
-        
+
         this.sensor.execute(this.context, nonCommentLineNumbersByFile);
 
         // Expect lines 1, 3 and 5 to have zero coverage...
         assertEquals((Integer) 0, this.context.lineHits(this.file.key(), CoverageType.UNIT, 1));
         assertEquals((Integer) 0, this.context.lineHits(this.file.key(), CoverageType.UNIT, 3));
         assertEquals((Integer) 0, this.context.lineHits(this.file.key(), CoverageType.UNIT, 5));
-     
+
         // and lines 2 and 5 to not have any coverage since they're not counted as code
         // according to our supplied map
         assertNull(this.context.lineHits(this.file.key(), CoverageType.UNIT, 2));
@@ -114,10 +114,10 @@ public class TsCoverageSensorImplTest {
     }
 
     @Test
-    public void savesNoCoverage_IfNotFoundFilesAreIgnored() {   
+    public void savesNoCoverage_IfNotFoundFilesAreIgnored() {
         when(this.settings.getBoolean(TypeScriptPlugin.SETTING_IGNORE_NOT_FOUND)).thenReturn(true);
         this.sensor.execute(this.context, null);
-        
+
         for (int i = 1; i <= this.file.lines(); i++) {
             assertNull(this.context.lineHits(this.file.key(), CoverageType.UNIT, i));
         }
@@ -128,11 +128,27 @@ public class TsCoverageSensorImplTest {
         HashMap<InputFile, NewCoverage> allFilesCoverage = new HashMap<InputFile, NewCoverage>();
         NewCoverage fileCoverage = spy(this.context.newCoverage());
         allFilesCoverage.put(this.file, fileCoverage);
-        
-        when(this.parser.parseFile(this.lcovFile)).thenReturn(allFilesCoverage);
+
+        when(this.parser.coverageByFile()).thenReturn(allFilesCoverage);
 
         this.sensor.execute(this.context, null);
 
         verify(fileCoverage, times(1)).save();
+    }
+
+    @Test
+    public void saveCoverage_WhenMultipleLCOVPathsSupplied() {
+        when(this.settings.getString(TypeScriptPlugin.SETTING_LCOV_REPORT_PATH)).thenReturn("lcovpath,lcovpath2");
+
+        HashMap<InputFile, NewCoverage> allFilesCoverage = new HashMap<InputFile, NewCoverage>();
+        NewCoverage fileCoverage = spy(this.context.newCoverage());
+        allFilesCoverage.put(this.file, fileCoverage);
+
+        when(this.parser.coverageByFile()).thenReturn(allFilesCoverage);
+        doReturn(this.lcovFile).when(this.sensor).getIOFile(any(File.class), eq("lcovpath2"));
+
+        this.sensor.execute(this.context, null);
+        verify(fileCoverage, times(1)).save();
+        verify(this.sensor).getParser(eq(this.context),argThat(files -> files.length == 2));
     }
 }
